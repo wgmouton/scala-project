@@ -1,10 +1,12 @@
 package com.wgmouton.eligibility
 
-import akka.actor.typed.{ActorRef, Behavior, SupervisorStrategy}
+import akka.actor.typed.{ActorRef, Behavior, Scheduler, SupervisorStrategy}
 import akka.actor.typed.scaladsl.Behaviors
-import scala.concurrent.ExecutionContext.Implicits.global
+import akka.actor.typed.scaladsl.AskPattern.*
+import akka.util.Timeout
+import com.wgmouton.eligibility.interactors.Interactor
 
-final case class PersonEligibilityScore(provider: Provider, name: String, apr: BigDecimal, cardScore: BigDecimal)
+import scala.concurrent.ExecutionContext.Implicits.global
 
 sealed trait Command
 final case class GetPersonEligibilityScore(name: String, creditScore: Int, salary: Int, replyTo: ActorRef[Either[String, List[PersonEligibilityScore]]]) extends Command
@@ -24,3 +26,7 @@ def apply(): Behavior[Command] =
       }
     })
     .onFailure(SupervisorStrategy.restart)
+
+def getPersonEligibilityScore(name: String, creditScore: Int, salary: Int)(implicit actorRef: ActorRef[Command], timeout: Timeout, scheduler: Scheduler) = {
+  actorRef.ask(GetPersonEligibilityScore(name, creditScore, salary, _))
+}

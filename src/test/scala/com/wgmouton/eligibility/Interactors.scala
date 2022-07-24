@@ -9,7 +9,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 
 class InteractorsSpec()
-  extends TestKit(ActorSystem("InteractorsSpec"))
+  extends TestKit(ActorSystem("InteractorSpec"))
     with ImplicitSender
     with AnyWordSpecLike
     with Matchers

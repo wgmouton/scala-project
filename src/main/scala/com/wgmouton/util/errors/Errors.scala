@@ -14,6 +14,7 @@ object AppErrors extends ErrorContext(0) {
   case object APP_SUPERVISOR_RESTARTED extends ErrorCode(2, "App supervisor restarted")
 }
 
+
 //object
 
 

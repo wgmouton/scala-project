@@ -1,22 +1,18 @@
-package com.wgmouton.eligibility
+package com.wgmouton.eligibility.interactors
 
 import cats.data.EitherT
+import com.wgmouton.eligibility.entities.CreditCard as CreditCardEntity
+import com.wgmouton.eligibility.types.PersonEligibilityScore
 
 import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
-import cats.implicits._
 
+object QueryPersonEligibility {
+  private def sortingScore(eligibility: BigDecimal, apr: BigDecimal): BigDecimal = eligibility * (1 / apr)
 
-object Interactor {
-
-  def lookupPersonEligibility(name: String, creditScore: Int, salary: Int): EitherT[Future, String, List[PersonEligibilityScore]] = {
-    val sortingScore: (BigDecimal, BigDecimal) => BigDecimal = { (eligibility, apr) =>
-      eligibility * ((1 / apr))
-    }
-
+  def usingPersonDetails(name: String, creditScore: Int, salary: Int): EitherT[Future, String, List[PersonEligibilityScore]] = {
     for {
-      csCards <- Entity.csCardsEligibility(name, creditScore)
-      scoredCards <- Entity.scoredCardsEligibility(name, creditScore, salary)
+      csCards <- CreditCardEntity.csCardsEligibility(name, creditScore)
+      scoredCards <- CreditCardEntity.scoredCardsEligibility(name, creditScore, salary)
     } yield {
       val x = scoredCards.map(scoredCard => PersonEligibilityScore(
         provider = scoredCard.provider,
