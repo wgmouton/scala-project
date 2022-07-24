@@ -4,49 +4,20 @@ import com.wgmouton.eligibility as EligibilityActor
 import com.wgmouton.clients as ClientActor
 
 
-object Main {
+object Main extends App {
 
-  def main(args: Array[String]): Unit = {
-    //#server-bootstrapping
-    val rootBehavior = Behaviors.setup[Nothing] { context =>
+  val rootBehavior = Behaviors.setup[Nothing] { context =>
+    // Spawn Eligibility Supervisor and Actor
+    val eligibilityActor: ActorRef[EligibilityActor.Command] = context.spawn(EligibilityActor.apply(), "eligibilityActor")
+    context.watch(eligibilityActor)
 
-      val eligibilityActor: ActorRef[EligibilityActor.Command] = context.spawn(EligibilityActor.apply(), "eligibilityActor")
-      context.watch(eligibilityActor)
+    // Spawn Clients Supervisor and Actor
+    val clientsActor: ActorRef[Nothing] = context.spawn(ClientActor.apply(eligibilityActor), "clientActor")
+    context.watch(clientsActor)
 
-      val clientsActor: ActorRef[Nothing] = context.spawn(ClientActor.apply(eligibilityActor), "clientActor")
-      context.watch(clientsActor)
-
-      Behaviors.empty
-    }
-    ActorSystem[Nothing](rootBehavior, "ClearScoreService")
+    Behaviors.empty
   }
 
-
-  //      val userRegistryActor = context.spawn(UserRegistry(), "UserRegistryActor")
-  //      context.watch(userRegistryActor)
-  //
-  //      val routes = new UserRoutes(userRegistryActor)(context.system)
-  //      startHttpServer(routes.userRoutes)(context.system)
-  //
-  //      Behaviors.empty
-  //    }
-  //    val system = ActorSystem[Nothing](rootBehavior, "HelloAkkaHttpServer")
-  //#server-bootstrapping
-
-
-  //  override implicit val system: ActorSystem = ActorSystem()
-  //  override implicit val executor: ExecutionContext = system.dispatcher
-
-  //  override val config = ConfigFactory.load()
-  //  override val logger = Logging(system, "ClearScoreService")
-
-  //  val httpServer: ActorSystem[GreeterMain.SayHello] = ActorSystem(GreeterMain(), "AkkaQuickStart")
-  //  val service: ActorSystem[Any] = ActorSystem("aaaa", "Service")
-
-  //  Http()
-  //    .newServerAt(
-  //      interface = config.getString("http.interface"),
-  //      port = config.getInt("http.port")
-  //    )
-  //    .bindFlow(routes)
+  // Start Root Supervisor
+  ActorSystem[Nothing](rootBehavior, "ClearScoreService")
 }
