@@ -1,0 +1,54 @@
+version: "3.9"
+services:
+  eligibility-service:
+    container_name: willem-eligibility-service
+    build:
+      dockerfile: .ops/docker/Dockerfile
+      context: .
+      target: dist
+    deploy:
+      mode: replicated
+      replicas: 1
+
+  swagger:
+    image: willem-swagger
+    ports:
+      - "80:80"
+    volumes:
+      - ./docs/
+  nginx:
+    image: nginx:latest
+    container_name: willem-nginx
+    ports:
+     - "80:8081"
+    volumes:
+     - .infra/nginx/devel.conf:/etc/nginx/conf.d/devel.conf
+    links:
+     - eligibility-service
+     - swagger
+
+#  seed:
+#    container_name: akka-sample-cluster-docker-compose-scala_seed_1
+#    image: lightbend/akka-sample-cluster-docker-compose-scala:latest
+#    ports:
+#      - '1600:1600'
+#    environment:
+#      CLUSTER_PORT: 1600
+#      CLUSTER_IP: seed
+#      SEED_PORT_1600_TCP_ADDR: seed
+#  c1:
+#    image: lightbend/akka-sample-cluster-docker-compose-scala:latest
+#    ports:
+#      - '1601:1601'
+#    environment:
+#      CLUSTER_PORT: 1601
+#      CLUSTER_IP: c1
+#      SEED_PORT_1600_TCP_ADDR: seed
+#  c2:
+#    image: lightbend/akka-sample-cluster-docker-compose-scala:latest
+#    ports:
+#      - '1602:1602'
+#    environment:
+#      CLUSTER_PORT: 1602
+#      CLUSTER_IP: c2
+#      SEED_PORT_1600_TCP_ADDR: seed
