@@ -39,7 +39,7 @@ sequenceDiagram
   
   http->>eligibility: get eligibility score
 
-  pard request scores from scoredcard
+  par request scores from scoredcard
     eligibility->>scoredcard: creditcards request
     scoredcard->>eligibility: creditcards response
   and request scores from cscard
@@ -50,7 +50,4 @@ sequenceDiagram
   loop
     eligibility->>eligibility: Sort scores hi to low
   end
-
-  eligibility->>http: response
-  http->>client: response
 ```
