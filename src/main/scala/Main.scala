@@ -1,15 +1,21 @@
-import akka.actor.typed.{ActorRef, ActorSystem}
+import akka.actor.typed.{ActorRef, ActorSystem, Props}
 import akka.actor.typed.scaladsl.Behaviors
 import com.typesafe.config.ConfigFactory
 import com.wgmouton.eligibility as EligibilityActor
+import com.wgmouton.eligibility.boudaries.{CreditCardEntityGateway, Command as EligibilityCommand}
 import com.wgmouton.clients as ClientActor
+import com.wgmouton.gateways.creditcard.Real
 
 object Main extends App {
   val config = ConfigFactory.load()
 
   val rootBehavior = Behaviors.setup[Nothing] { context =>
+
+    //Gateway Actors
+    val creditCardEntityGateway: CreditCardEntityGateway = Real
+
     // Spawn Eligibility Supervisor and Actor
-    val eligibilityActor: ActorRef[EligibilityActor.Command] = context.spawn(EligibilityActor(), "eligibilityActor")
+    val eligibilityActor: ActorRef[EligibilityCommand] = context.spawn(EligibilityActor(creditCardEntityGateway), "eligibilityActor")
     context.watch(eligibilityActor)
 
     // Spawn Clients Supervisor and Actor

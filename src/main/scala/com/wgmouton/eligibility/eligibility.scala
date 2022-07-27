@@ -4,29 +4,39 @@ import akka.actor.typed.{ActorRef, Behavior, Scheduler, SupervisorStrategy}
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.scaladsl.AskPattern.*
 import akka.util.Timeout
-import com.wgmouton.eligibility.interactors.Interactor
+import com.wgmouton.eligibility.boudaries.*
+import com.wgmouton.eligibility.entities.CreditCard
+import com.wgmouton.eligibility.interactors.{QueryCards, QueryPersonEligibility}
+import com.wgmouton.eligibility.types.*
+
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-sealed trait Command
-final case class GetPersonEligibilityScore(name: String, creditScore: Int, salary: Int, replyTo: ActorRef[Either[String, List[PersonEligibilityScore]]]) extends Command
+private def handleCommand(
+                           implicit creditCardEntity: CreditCard, queryPersonEligibility: QueryPersonEligibility
+                         ): Command => Behavior[Command] = {
+  case QueryPersonEligibilityUsingPersonDetails(name, creditScore, salary, replyTo) =>
+    queryPersonEligibility.usingPersonDetails(name, creditScore, salary).value.foreach(replyTo.tell)
+    Behaviors.same
 
-def apply(): Behavior[Command] =
+  case _ =>
+    Behaviors.same
+}
+
+def apply(creditCardEntityGateway: CreditCardEntityGateway): Behavior[Command] =
   Behaviors
     .supervise(Behaviors.setup[Command] { context =>
-      Behaviors.receiveMessage {
-        case GetPersonEligibilityScore(name, creditScore, salary, replyTo) =>
-          Interactor
-            .lookupPersonEligibility(name, creditScore, salary).value
-            .foreach(replyTo.tell)
-          Behaviors.same
+      val creditCardEntityGatewayActor = context.spawn(creditCardEntityGateway(), "CreditCardEntityGateway")
+      context.watch(creditCardEntityGatewayActor)
 
-        case _ =>
-          Behaviors.same
-      }
+      //Initialize entities
+      implicit val creditCardEntity: CreditCard = new CreditCard(creditCardEntityGatewayActor)
+
+      //Initialize interactors
+      implicit val queryPersonEligibility: QueryPersonEligibility = new QueryPersonEligibility
+      implicit val queryCards: QueryCards = new QueryCards
+
+      //Start message handler
+      Behaviors.receiveMessage(handleCommand)
     })
     .onFailure(SupervisorStrategy.restart)
-
-def getPersonEligibilityScore(name: String, creditScore: Int, salary: Int)(implicit actorRef: ActorRef[Command], timeout: Timeout, scheduler: Scheduler) = {
-  actorRef.ask(GetPersonEligibilityScore(name, creditScore, salary, _))
-}

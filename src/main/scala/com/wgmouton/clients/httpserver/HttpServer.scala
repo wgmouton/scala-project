@@ -3,8 +3,8 @@ package com.wgmouton.clients.httpserver
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior, SupervisorStrategy}
 import akka.http.scaladsl.model.StatusCode
-import com.wgmouton.eligibility
-import com.wgmouton.eligibility.Command
+import com.wgmouton.eligibility.boudaries.{QueryPersonEligibilityUsingPersonDetails}
+import com.wgmouton.eligibility.boudaries.Command as EligibilityCommand
 import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.actor.typed.scaladsl.AskPattern.*
 import akka.actor.typed.scaladsl.Behaviors
@@ -38,7 +38,7 @@ object JsonFormats {
   implicit val personJsonFormat: RootJsonFormat[Person] = jsonFormat3(Person.apply)
 }
 
-class RouteHandlers(eligibilityActor: ActorRef[eligibility.Command])(implicit val system: ActorSystem[_]) {
+class RouteHandlers(eligibilityActor: ActorRef[EligibilityCommand])(implicit val system: ActorSystem[_]) {
 
   import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport.*
   import JsonFormats.*
@@ -59,23 +59,24 @@ class RouteHandlers(eligibilityActor: ActorRef[eligibility.Command])(implicit va
   }
 
   private def routeHandler[R](f: () => Future[(StatusCode, R)]): Route = {
-    //    onComplete(f()) {
-    //      case Failure(res) => complete((OK, "res"))
-    //      case Success(res) => complete((OK, "res"))
-    //    }
-
-    onSuccess(f())((status, res) => complete((status, "String")))
+    onComplete(f()) {
+      case Failure(res) => complete((OK, res))
+//      case Success(res: String) => complete((OK, res))
+      case Success(res) => complete((OK, "no string"))
+    }
   }
 
 
   def lookupByPerson: Person => Route = { person =>
     routeHandler { () =>
       eligibilityActor
-        .ask(eligibility.GetPersonEligibilityScore(person.name, person.creditScore, person.salary, _))
+        .ask(QueryPersonEligibilityUsingPersonDetails(person.name, person.creditScore, person.salary, _))
         .map {
-          case Left(error) => InternalServerError -> error
+          case Left(error) =>
+            println(error)
+            InternalServerError -> error
           case Right(res) =>
-                      println(res)
+            println(res)
             OK -> res
         }
     }
@@ -90,7 +91,7 @@ class RouteHandlers(eligibilityActor: ActorRef[eligibility.Command])(implicit va
 
 object HttpServer {
 
-  def start(eligibilityActor: ActorRef[eligibility.Command])(implicit system: ActorSystem[_]): Unit = {
+  def start(eligibilityActor: ActorRef[EligibilityCommand])(implicit system: ActorSystem[_]): Unit = {
     // Akka HTTP still needs a classic ActorSystem to start
 
     import system.executionContext

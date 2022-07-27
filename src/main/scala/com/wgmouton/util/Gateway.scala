@@ -1,13 +1,7 @@
 package com.wgmouton.util
 
-trait Gateway {
+import akka.actor.typed.Behavior
 
-}
-
-trait StubGateway extends Gateway {
-
-}
-
-trait RealGateway extends Gateway {
-
+trait Gateway[C] {
+  def apply(): Behavior[C]
 }
