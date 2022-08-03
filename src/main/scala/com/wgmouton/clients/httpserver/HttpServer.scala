@@ -2,8 +2,8 @@ package com.wgmouton.clients.httpserver
 
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior, SupervisorStrategy}
-import akka.http.scaladsl.model.StatusCode
-import com.wgmouton.eligibility.boudaries.{QueryPersonEligibilityUsingPersonDetails}
+import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpHeader, HttpRequest, HttpResponse, MediaTypes, ResponseEntity, StatusCode, StatusCodes}
+import com.wgmouton.eligibility.boudaries.QueryPersonEligibilityUsingPersonDetails
 import com.wgmouton.eligibility.boudaries.InteractorCommand as EligibilityCommand
 import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.actor.typed.scaladsl.AskPattern.*
@@ -12,14 +12,16 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.client.RequestBuilding
 import akka.http.scaladsl.marshalling.ToResponseMarshallable
 import akka.http.scaladsl.model.StatusCodes.*
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes}
+import akka.http.scaladsl.model.headers.`Content-Type`
 import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.{Route, StandardRoute}
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.util.Timeout
 import com.typesafe.config.{Config, ConfigFactory}
-import spray.json.RootJsonFormat
+import com.wgmouton.eligibility.types.{PersonEligibilityScore, Provider}
+import netscape.javascript.JSException
+import spray.json.{RootJsonFormat, *}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -28,14 +30,29 @@ import scala.util.{Failure, Success}
 
 final case class Person(name: String, creditScore: Int, salary: Int)
 
-import spray.json.DefaultJsonProtocol
+object JsonFormats extends DefaultJsonProtocol {
 
-object JsonFormats {
-  // import the default encoders for primitive types (Int, String, Lists etc)
-
-  import DefaultJsonProtocol._
+  import DefaultJsonProtocol.*
 
   implicit val personJsonFormat: RootJsonFormat[Person] = jsonFormat3(Person.apply)
+  implicit val cardScoreJsonFormat: RootJsonFormat[PersonEligibilityScore] = new RootJsonFormat[PersonEligibilityScore] {
+    def write(pes: PersonEligibilityScore): JsValue = {
+      JsObject(
+        "provider" -> pes.provider.toString.toJson,
+        "name" -> pes.name.toJson,
+        "apr" -> pes.apr.toJson,
+        "cardScore" -> pes.cardScore.toJson
+      )
+    }
+
+    def read(value: JsValue): PersonEligibilityScore = deserializationError("Not Implemented")
+  }
+  implicit val providerJsonFormat: RootJsonFormat[Provider] = new RootJsonFormat[Provider] {
+    def write(provider: Provider): JsValue = JsString(provider.toString)
+
+    def read(value: JsValue): Provider = Provider.valueOf(value.convertTo[String])
+  }
+
 }
 
 class RouteHandlers(eligibilityActor: ActorRef[EligibilityCommand])(implicit val system: ActorSystem[_]) {
@@ -43,7 +60,7 @@ class RouteHandlers(eligibilityActor: ActorRef[EligibilityCommand])(implicit val
   import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport.*
   import JsonFormats.*
 
-  implicit val timeout: Timeout = 5.seconds
+  implicit val timeout: Timeout = 20.seconds
 
   val routes: Route = {
     logRequestResult("akka-http-microservice") {
@@ -58,11 +75,15 @@ class RouteHandlers(eligibilityActor: ActorRef[EligibilityCommand])(implicit val
     }
   }
 
-  private def routeHandler[R](f: () => Future[(StatusCode, R)]): Route = {
+  private def routeHandler(f: () => Future[(StatusCode, ResponseEntity)]): Route = {
     onComplete(f()) {
-      case Failure(res) => complete((OK, res))
-//      case Success(res: String) => complete((OK, res))
-      case Success(res) => complete((OK, "no string"))
+      case Failure(res) => complete(InternalServerError, res)
+      case Success(res) => complete {
+        HttpResponse(
+          status = res._1,
+          entity = res._2
+        )
+      }
     }
   }
 
@@ -70,14 +91,10 @@ class RouteHandlers(eligibilityActor: ActorRef[EligibilityCommand])(implicit val
   def lookupByPerson: Person => Route = { person =>
     routeHandler { () =>
       eligibilityActor
-        .ask(QueryPersonEligibilityUsingPersonDetails(person.name, person.creditScore, person.salary, _))
+        .ask[Either[String, List[PersonEligibilityScore]]](QueryPersonEligibilityUsingPersonDetails(person.name, person.creditScore, person.salary, _))
         .map {
-          case Left(error) =>
-            println(error)
-            InternalServerError -> error
-          case Right(res) =>
-            println(res)
-            OK -> res
+          case Left(error) => InternalServerError -> HttpEntity(ContentTypes.`text/plain(UTF-8)`, error)
+          case Right(res) => OK -> HttpEntity(ContentTypes.`application/json`, res.toJson.compactPrint)
         }
     }
   }

@@ -18,7 +18,7 @@ class QueryPersonEligibility(implicit val creditCardEntity: CreditCardEntity) {
     }
   }
 
-  private def sortingScore(eligibility: BigDecimal, apr: BigDecimal): BigDecimal = eligibility * (1 / apr)
+  private def sortingScore(eligibility: BigDecimal, apr: BigDecimal): BigDecimal = eligibility * ((1 / apr).pow(2))
 
   def usingPersonDetails(name: String, creditScore: Int, salary: Int): EitherT[Future, String, List[PersonEligibilityScore]] = {
     val fetchCSCards = ignoreSafeErrors(creditCardEntity.csCardsEligibility(name, creditScore), List.empty)
