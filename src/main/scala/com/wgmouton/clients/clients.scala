@@ -3,7 +3,7 @@ package com.wgmouton.clients
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior, SupervisorStrategy}
 import akka.actor.typed.scaladsl.Behaviors
 import com.wgmouton.clients.httpserver.HttpServer
-import com.wgmouton.eligibility.boudaries.Command as EligibilityCommand
+import com.wgmouton.eligibility.boudaries.InteractorCommand as EligibilityCommand
 
 
 def apply(eligibilityActor: ActorRef[EligibilityCommand]) = Behaviors

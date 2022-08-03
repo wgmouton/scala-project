@@ -1,46 +1,59 @@
 package com.wgmouton.gateways.creditcard
 
-import akka.actor.typed.{ActorRef, Behavior}
-import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
+import akka.http.scaladsl.Http
 import cats.data.EitherT
 import com.wgmouton.eligibility.types.*
-import com.wgmouton.eligibility.boudaries.{Command, CreditCardEntityGateway, QueryPersonEligibilityUsingPersonDetails}
+import com.wgmouton.eligibility.boudaries.*
 import com.wgmouton.eligibility.interactors.QueryPersonEligibility
 import com.wgmouton.util.Gateway
 import cats.implicits.*
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-
-sealed trait Command
-
-final case class Test(
-                                                           name: String,
-                                                           creditScore: Int,
-                                                           replyTo: ActorRef[Either[String, List[CSCardsScore]]]
-                                                         ) extends Command
+import akka.http.scaladsl.client.RequestBuilding.Post
+import akka.http.scaladsl.model.{HttpResponse, ResponseEntity, StatusCodes}
 
 
-object Real extends Gateway[Any]
-  with CreditCardEntityGateway {
+object Real extends Gateway[CreditCardEntityGatewayCommand] with CreditCardEntityGateway {
 
-  private def handleCommand(): Any => Behavior[Any] = {
-    case _ =>
+  private def fetchData[R](context: ActorContext[CreditCardEntityGatewayCommand], url: String, data: String, dataF: ResponseEntity => R): Future[Either[String, R]] = {
+
+    println("hiiiii")
+    println(url)
+
+    val req = Post(url, data)
+    val res = Http()(context.system).singleRequest(req)
+    res.map {
+      case response@HttpResponse(StatusCodes.OK, _, _, _) =>
+        println(response)
+
+        Right(dataF(response.entity))
+
+      case _ =>
+        println("somet")
+        Left("something wrong")
+    }
+  }
+
+  private def handleCommand(context: ActorContext[CreditCardEntityGatewayCommand]): CreditCardEntityGatewayCommand => Behavior[CreditCardEntityGatewayCommand] = {
+    case GetFromSCScore(_, _, replyTo) =>
+      fetchData(context, "https://app.clearscore.com/api/global/backend-tech-test/v1/cards", "", { res =>
+        println(res)
+        List.empty[CSCardsScore]
+      }).foreach(d => replyTo.tell(d))
+      Behaviors.same
+    case GetFromScoredCards(_, _, _, replyTo) =>
+      fetchData(context, "https://app.clearscore.com/api/global/backend-tech-test/v2/creditcards", "", { res =>
+        List.empty[ScoredCardsScore]
+      }).foreach(replyTo.tell)
       Behaviors.same
   }
 
 
-  override def apply(): Behavior[Any] = Behaviors.setup { context =>
-    Behaviors.receiveMessage[Any](x => handleCommand() (x))
-//    Behaviors.same[Command]
+  override def apply(): Behavior[CreditCardEntityGatewayCommand] = Behaviors.setup { context =>
+    Behaviors.receiveMessage[CreditCardEntityGatewayCommand](x => handleCommand(context)(x))
+    //    Behaviors.same[Command]
   }
-
-//  override def getFromCSScore(name: String, creditScore: Int): EitherT[Future, String, List[CSCardsScore]] = {
-//    EitherT.leftT[Future, List[CSCardsScore]]("error")
-//  }
-//
-//  override def getFromScoredScore(name: String, creditScore: Int): EitherT[Future, String, List[ScoredCardsScore]] = {
-//    EitherT.leftT[Future, List[ScoredCardsScore]]("error")
-//
-//  }
 }

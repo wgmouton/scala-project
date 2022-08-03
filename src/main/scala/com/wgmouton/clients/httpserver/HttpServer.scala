@@ -4,7 +4,7 @@ import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior, SupervisorStrategy}
 import akka.http.scaladsl.model.StatusCode
 import com.wgmouton.eligibility.boudaries.{QueryPersonEligibilityUsingPersonDetails}
-import com.wgmouton.eligibility.boudaries.Command as EligibilityCommand
+import com.wgmouton.eligibility.boudaries.InteractorCommand as EligibilityCommand
 import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.actor.typed.scaladsl.AskPattern.*
 import akka.actor.typed.scaladsl.Behaviors

@@ -1,6 +1,6 @@
 package com.wgmouton.eligibility
 
-import akka.actor.typed.{ActorRef, Behavior, Scheduler, SupervisorStrategy}
+import akka.actor.typed.{ActorRef, ActorSystem, Behavior, Scheduler, SupervisorStrategy}
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.scaladsl.AskPattern.*
 import akka.util.Timeout
@@ -9,12 +9,11 @@ import com.wgmouton.eligibility.entities.CreditCard
 import com.wgmouton.eligibility.interactors.{QueryCards, QueryPersonEligibility}
 import com.wgmouton.eligibility.types.*
 
-
 import scala.concurrent.ExecutionContext.Implicits.global
 
 private def handleCommand(
                            implicit creditCardEntity: CreditCard, queryPersonEligibility: QueryPersonEligibility
-                         ): Command => Behavior[Command] = {
+                         ): InteractorCommand => Behavior[InteractorCommand] = {
   case QueryPersonEligibilityUsingPersonDetails(name, creditScore, salary, replyTo) =>
     queryPersonEligibility.usingPersonDetails(name, creditScore, salary).value.foreach(replyTo.tell)
     Behaviors.same
@@ -23,9 +22,9 @@ private def handleCommand(
     Behaviors.same
 }
 
-def apply(creditCardEntityGateway: CreditCardEntityGateway): Behavior[Command] =
+def apply(creditCardEntityGateway: CreditCardEntityGateway)(implicit system: ActorSystem[_]): Behavior[InteractorCommand] =
   Behaviors
-    .supervise(Behaviors.setup[Command] { context =>
+    .supervise(Behaviors.setup[InteractorCommand] { context =>
       val creditCardEntityGatewayActor = context.spawn(creditCardEntityGateway(), "CreditCardEntityGateway")
       context.watch(creditCardEntityGatewayActor)
 
