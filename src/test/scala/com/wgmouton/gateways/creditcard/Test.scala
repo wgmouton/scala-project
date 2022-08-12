@@ -26,9 +26,16 @@ import scala.concurrent.Future
 import scala.concurrent.duration.*
 
 
-object Real extends Gateway[CreditCardEntityGatewayCommand] with CreditCardEntityGateway {
-
-  private val ServiceUrlNotDefined: String => ServiceError = url => ServiceError(23, String.format("service url at environment variable (%s) not set", url))
+//object JsonFormats extends DefaultJsonProtocol {
+//
+//  implicit val getFromSCScoreJsonFormat: RootJsonFormat[List[CSCardsScore]] = new RootJsonFormat[List[CSCardsScore]] {
+//    def write(getFromSCScore: GetFromSCScore): JsValue = JsString("hi")
+//
+//    def read(value: JsValue): List[CSCardsScore] = List.empty[CSCardsScore]
+//  }
+//
+//}
+object Test extends Gateway[CreditCardEntityGatewayCommand] with CreditCardEntityGateway {
 
   private def fetchData[R](context: ActorContext[CreditCardEntityGatewayCommand], url: String, data: JsValue, dataF: String => R): Future[Either[ServiceError, R]] = {
     implicit val materializer: ActorSystem[Nothing] = context.system
@@ -47,14 +54,11 @@ object Real extends Gateway[CreditCardEntityGatewayCommand] with CreditCardEntit
         Unmarshal(response.entity).to[String].map(rawJson =>
           Right(dataF(rawJson))
         )
-      case response@HttpResponse(StatusCodes.NotFound, _, _, _) =>
-        Unmarshal(response.entity).to[String].map(rawJson =>
-          Left(ServiceError(404, "Data not found", rawJson))
-        )
-      case res =>
-        Unmarshal(res.entity).to[String].map(rawJson =>
-          Left(ServiceError(21, "Failed to fetch data from server", rawJson))
-        )
+      //      case res =>
+      //        Unmarshal(res.entity).to[String].map(rawJson =>
+      //          Left(rawJson)
+      //
+      //        )
     }
   }
 
@@ -64,46 +68,20 @@ object Real extends Gateway[CreditCardEntityGatewayCommand] with CreditCardEntit
         "name" -> name.toJson,
         "creditScore" -> creditScore.toJson
       )
-
-      EitherT.fromOption[Future](sys.env.get("CSCARDS_ENDPOINT"), ServiceUrlNotDefined("CSCARDS_ENDPOINT")).flatMapF { url =>
-        fetchData(context, url, json, { rawJson =>
-          println("hiiiii")
-          println(url)
-          rawJson.parseJson.convertTo[List[JsValue]].flatMap(_.asJsObject.getFields("cardName", "apr", "eligibility") match {
-            case Seq(cardName, apr, eligibility) => List(
-              CSCardsScore(
-                cardName.convertTo[String],
-                apr.convertTo[BigDecimal],
-                eligibility.convertTo[BigDecimal]
-              )
-            )
-            case _ => List.empty[CSCardsScore]
-          })
-        })
-      }.value.foreach(replyTo.tell)
+      replyTo.tell(Right(
+        List(
+          CSCardsScore("SuperSaver Card", 19.4, 0.137),
+          CSCardsScore("SuperSpender Card", 19.2, 0.135)
+        )
+      ))
       Behaviors.same
 
     case GetFromScoredCards(name, score, salary, replyTo) =>
-      val json = JsObject(
-        "name" -> name.toJson,
-        "score" -> score.toJson,
-        "salary" -> salary.toJson,
-      )
-      EitherT.fromOption[Future](sys.env.get("SCOREDCARDS_ENDPOINT"), ServiceUrlNotDefined("SCOREDCARDS_ENDPOINT")).flatMapF { url =>
-        println(url)
-        fetchData(context, url, json, { rawJson =>
-          rawJson.parseJson.convertTo[List[JsValue]].flatMap(_.asJsObject.getFields("card", "apr", "approvalRating") match {
-            case Seq(card, apr, approvalRating) => List(
-              ScoredCardsScore(
-                card.convertTo[String],
-                apr.convertTo[BigDecimal],
-                approvalRating.convertTo[BigDecimal]
-              )
-            )
-            case _ => List.empty[ScoredCardsScore]
-          })
-        })
-      }.value.foreach(replyTo.tell)
+      replyTo.tell(Right(
+        List(
+          ScoredCardsScore("Scored Card Builder", 19.4, 0.8)
+        )
+      ))
       Behaviors.same
   }
 

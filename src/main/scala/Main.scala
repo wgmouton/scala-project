@@ -2,7 +2,8 @@ import akka.actor.typed.{ActorRef, ActorSystem, Props}
 import akka.actor.typed.scaladsl.Behaviors
 import com.typesafe.config.ConfigFactory
 import com.wgmouton.eligibility as EligibilityActor
-import com.wgmouton.eligibility.boudaries.{CreditCardEntityGateway, InteractorCommand as EligibilityCommand}
+import com.wgmouton.eligibility.boudaries.CreditCardEntityGateway
+import com.wgmouton.eligibility.commands.InteractorCommand as EligibilityCommand
 import com.wgmouton.clients as ClientActor
 import com.wgmouton.gateways.creditcard.Real
 

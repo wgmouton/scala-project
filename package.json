@@ -2,10 +2,12 @@
   "scripts": {
     "prepare": "npx lefthook install",
 
-    "start": "start",
+    "build": "sbt clean compile assembly",
+    "build:docker": "docker build -t cs:latest -f ./.ops/docker/Dockerfile .",
+
+    "start": "npm run start:docker",
     "start:docker": "docker-compose up",
-    "start:local": "sbt run",
-    "start:k8s": "npm ",
+    "start:local": "[ ! -f .env ] || export $(grep -v '^#' .env | xargs) && sbt ~run",
 
     "test": "concurrently -m 1 -n test: npm:test:*",
     "test:code": "",
