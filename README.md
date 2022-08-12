@@ -19,6 +19,8 @@
 
 ### Start Methods
 
+Please change the .env if you would like to update the environment variables.
+
 1. **Script** `
     - ```
    chmod +x ./start.sh
@@ -30,7 +32,7 @@
     - `npm run start:docker`
 3. **Docker Compose**
     - `docker compose up --build`
-      Buy running it in docker compose the sagger definitions is pulled in as well and can be reached at http://localhost/swagger/
+      By running it in docker compose the sagger definitions is pulled in as well and can be reached at http://localhost/swagger/
 4. **Manual**
     - ```
    export HTTP_PORT=8080
