@@ -1,4 +1,4 @@
-# Clear Score Technical Test
+# Scala Project
 
 ## References
 
